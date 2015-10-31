@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 )
 
 // QueryParam is the structure used to hold
@@ -143,6 +144,7 @@ type Filter struct {
 type QueryResponse struct {
 	StatusCode    int
 	QueryRespCnts []QueryRespItem `json:"queryRespCnts"`
+	ErrorMsg      string          `json:"errorMsg,omitempty"`
 }
 
 func (queryResp *QueryResponse) String() string {
@@ -158,7 +160,14 @@ func (queryResp *QueryResponse) SetStatus(code int) {
 
 func (queryResp *QueryResponse) GetCustomParser() func(respCnt []byte) error {
 	return func(respCnt []byte) error {
-		return json.Unmarshal([]byte(fmt.Sprintf("{%s:%s}", `"queryRespCnts"`, string(respCnt))), &queryResp)
+		originRespStr := string(respCnt)
+		var respStr string
+		if queryResp.StatusCode == 200 && strings.Contains(originRespStr, "[") && strings.Contains(originRespStr, "]") {
+			respStr = fmt.Sprintf("{%s:%s}", `"queryRespCnts"`, originRespStr)
+		} else {
+			respStr = fmt.Sprintf("{%s:%s}", `"errorMsg"`, originRespStr)
+		}
+		return json.Unmarshal([]byte(respStr), &queryResp)
 	}
 }
 
