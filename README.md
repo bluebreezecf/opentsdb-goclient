@@ -9,7 +9,20 @@ and make this data easily accessible and graphable.
 I am about to use OpenTSDB, but currently there is no useable go-sdk for OpenTSDB. So I 
 develop the opentsdb-goclient for convenience according to the [OpenTSDB Rest API Doc] (http://opentsdb.net/docs/build/html/api_http/index.html#api-endpoints)
 
-###Current support rest apis
+###How to use sample
+If you want to see how does the sample (sample.go) run, you can execute the following commands:
+```shell
+cd $GOPATH
+mkdir -p $GOPATH/src/github.com/bluebreezecf
+cd $GOPATH/src/github.com/bluebreezecf
+git clone https://github.com/bluebreezecf/opentsdb-goclient.git
+
+vi sample.go //Use the real host and port of an existing OpenTSDB in Line 30: NewClient("127.0.0.1:4242")
+go run sample.go
+
+```
+
+###Current supporting rest apis
 ```shell
 GET             /api/aggregators
 GET,POST,DELETE /api/annotation
