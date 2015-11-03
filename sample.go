@@ -28,6 +28,11 @@ import (
 
 func main() {
 	tsdbClient := client.NewClient("127.0.0.1:4242")
+	//0. Ping
+	if err := tsdbClient.Ping(); err != nil {
+		fmt.Println(err.Error())
+		return
+	}
 	PutDataPointNum := 4
 
 	//1. POST /api/put

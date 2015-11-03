@@ -79,6 +79,10 @@ const (
 // a rest-api definition in (http://opentsdb.net/docs/build/html/api_http/index.html#api-endpoints).
 type Client interface {
 
+	// Ping detects whether the target OpenTSDB is reachable or not.
+	// If error occurs during the detection, an error instance will be returned, or nil otherwise.
+	Ping() error
+
 	// Put is the implementation of 'POST /api/put' endpoint.
 	// This endpoint allows for storing data in OpenTSDB over HTTP as an alternative to the Telnet interface.
 	//
@@ -375,6 +379,7 @@ func NewClient(opentsdbEndpoint string) Client {
 	tsdbEndpoint := fmt.Sprintf("http://%s", opentsdbEndpoint)
 	clientImpl := clientImpl{
 		tsdbEndpoint: tsdbEndpoint,
+		tsdbHost:     opentsdbEndpoint,
 		client:       client,
 	}
 	return &clientImpl
@@ -383,6 +388,7 @@ func NewClient(opentsdbEndpoint string) Client {
 // The private implementation of Client interface.
 type clientImpl struct {
 	tsdbEndpoint string
+	tsdbHost     string
 	client       *http.Client
 }
 
@@ -456,4 +462,15 @@ func (c *clientImpl) isValidOperateMethod(method string) bool {
 		}
 	}
 	return exists
+}
+
+func (c *clientImpl) Ping() error {
+	conn, err := net.DialTimeout("tcp", c.tsdbHost, DefaultDialTimeout)
+	if err != nil {
+		return errors.New(fmt.Sprintf("The target OpenTSDB is unreachable: %v", err))
+	}
+	if conn != nil {
+		defer conn.Close()
+	}
+	return nil
 }
