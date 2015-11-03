@@ -37,7 +37,7 @@ func main() {
 
 	//1. POST /api/put
 	fmt.Println("Begin to test POST /api/put.")
-	cpuDatas := []client.DataPoint{}
+	cpuDatas := make([]client.DataPoint, 0)
 	st1 := time.Now().Unix()
 	time.Sleep(2 * time.Second)
 	tags := make(map[string]string)
