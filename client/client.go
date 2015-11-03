@@ -362,15 +362,7 @@ type Client interface {
 // pre-defined rest apis of OpenTSDB.
 // A non-nil error instance returned means currently the target OpenTSDB
 // designated with the given endpoint is not connectable.
-func NewClient(opentsdbEndpoint string) (Client, error) {
-	conn, err := net.DialTimeout("tcp", opentsdbEndpoint, DefaultDialTimeout)
-	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Failed to connect the target OpenTSDB: %v", err))
-	}
-	if conn != nil {
-		defer conn.Close()
-	}
-
+func NewClient(opentsdbEndpoint string) Client {
 	client := &http.Client{
 		Transport: &http.Transport{
 			MaxIdleConnsPerHost: 10,
@@ -385,7 +377,7 @@ func NewClient(opentsdbEndpoint string) (Client, error) {
 		tsdbEndpoint: tsdbEndpoint,
 		client:       client,
 	}
-	return &clientImpl, nil
+	return &clientImpl
 }
 
 // The private implementation of Client interface.

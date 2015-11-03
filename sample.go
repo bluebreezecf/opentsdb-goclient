@@ -27,11 +27,7 @@ import (
 )
 
 func main() {
-	tsdbClient, err := client.NewClient("9.91.34.95:4242")
-	if err != nil {
-		fmt.Printf("%v\n", err)
-		return
-	}
+	tsdbClient := client.NewClient("127.0.0.1:4242")
 	PutDataPointNum := 4
 
 	//1. POST /api/put
