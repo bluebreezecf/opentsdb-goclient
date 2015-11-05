@@ -143,8 +143,8 @@ type Filter struct {
 //
 type QueryResponse struct {
 	StatusCode    int
-	QueryRespCnts []QueryRespItem `json:"queryRespCnts"`
-	ErrorMsg      string          `json:"errorMsg,omitempty"`
+	QueryRespCnts []QueryRespItem        `json:"queryRespCnts"`
+	ErrorMsg      map[string]interface{} `json:"error"`
 }
 
 func (queryResp *QueryResponse) String() string {
@@ -165,7 +165,7 @@ func (queryResp *QueryResponse) GetCustomParser() func(respCnt []byte) error {
 		if queryResp.StatusCode == 200 && strings.Contains(originRespStr, "[") && strings.Contains(originRespStr, "]") {
 			respStr = fmt.Sprintf("{%s:%s}", `"queryRespCnts"`, originRespStr)
 		} else {
-			respStr = fmt.Sprintf("{%s:%s}", `"errorMsg"`, originRespStr)
+			respStr = originRespStr
 		}
 		return json.Unmarshal([]byte(respStr), &queryResp)
 	}
