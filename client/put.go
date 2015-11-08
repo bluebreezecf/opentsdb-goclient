@@ -64,6 +64,10 @@ type PutError struct {
 	ErrorMsg string    `json:"error"`
 }
 
+func (putErr *PutError) String() string {
+	return fmt.Sprintf("%s:%s", putErr.ErrorMsg, putErr.Data.String())
+}
+
 // PutResponse acts as the implementation of Response
 // in the /api/put scene.
 // It holds the status code and the response values defined in
@@ -112,7 +116,21 @@ func (c *clientImpl) Put(datas []DataPoint, queryParam string) (*PutResponse, er
 	if err = c.sendRequest(PostMethod, putEndpoint, reqBodyCnt, &putResp); err != nil {
 		return nil, err
 	}
-	return &putResp, nil
+	if putResp.StatusCode == 200 {
+		return &putResp, nil
+	}
+	return nil, parsePutErrorMsg(&putResp)
+}
+
+func parsePutErrorMsg(resp *PutResponse) error {
+	buf := bytes.Buffer{}
+	buf.WriteString(fmt.Sprintf("Failed to put %d datapoint(s) into opentsdb, statuscode %d:\n", resp.Failed, resp.StatusCode))
+	if len(resp.Errors) > 0 {
+		for _, putError := range resp.Errors {
+			buf.WriteString(fmt.Sprintf("\t%s\n", putError.String()))
+		}
+	}
+	return errors.New(buf.String())
 }
 
 func getPutBodyContents(datas []DataPoint) (string, error) {
