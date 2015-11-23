@@ -83,6 +83,12 @@ type SubQuery struct {
 	// The name of an aggregation function to use.
 	// The value is required with non-empty one in the range of
 	// the response of calling /api/aggregators.
+	//
+	// By default, the potential values and corresponding descriptions are as followings:
+	//   "sum": Adds all of the data points for a timestamp.
+	//   "min": Picks the smallest data point for each timestamp.
+	//   "max": Picks the largest data point for each timestamp.
+	//   "avg": Averages the values for the data points at each timestamp.
 	Aggregator string `json:"aggregator"`
 
 	// The name of a metric stored in the system.
