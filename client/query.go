@@ -25,6 +25,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -194,13 +196,18 @@ type QueryRespItem struct {
 	// Note that: Api Doc uses 'aggreatedTags', but actual response uses 'aggregateTags'
 	AggregatedTags []string `json:"aggregateTags"`
 
-	// Retrieved data points after being processed by the aggregators. Each data point consists
+	// Retrieved datapoints after being processed by the aggregators. Each data point consists
 	// of a timestamp and a value, the format determined by the serializer.
 	// For the JSON serializer, the timestamp will always be a Unix epoch style integer followed
 	// by the value as an integer or a floating point.
 	// For example, the default output is "dps"{"<timestamp>":<value>}.
 	// By default the timestamps will be in seconds. If the msResolution flag is set, then the
 	// timestamps will be in milliseconds.
+	//
+	// Because the elements of map is out of order, using common way to iterate Dps will not get
+	// datapoints with timestamps out of order.
+	// So be aware that one should use '(qri *QueryRespItem) GetDataPoints() []*DataPoint' to
+	// acquire the real ascending datapoints.
 	Dps map[string]interface{} `json:"dps"`
 
 	// If the query retrieved annotations for timeseries over the requested timespan, they will
@@ -214,6 +221,27 @@ type QueryRespItem struct {
 	// the timespan and the results returned in this group.
 	// The value is optional.
 	GlobalAnnotations []Annotation `json:"globalAnnotations,omitempty"`
+}
+
+// GetDataPoints returns the real ascending datapoints from the information of the related QueryRespItem.
+func (qri *QueryRespItem) GetDataPoints() []*DataPoint {
+	datapoints := make([]*DataPoint, 0)
+	timestampStrs := make([]string, 0)
+	for timestampStr := range qri.Dps {
+		timestampStrs = append(timestampStrs, timestampStr)
+	}
+	sort.Strings(timestampStrs)
+	for _, timestampStr := range timestampStrs {
+		timestamp, _ := strconv.ParseInt(timestampStr, 10, 64)
+		datapoint := &DataPoint{
+			Metric:    qri.Metric,
+			Value:     qri.Dps[timestampStr],
+			Tags:      qri.Tags,
+			Timestamp: timestamp,
+		}
+		datapoints = append(datapoints, datapoint)
+	}
+	return datapoints
 }
 
 func (c *clientImpl) Query(param QueryParam) (*QueryResponse, error) {
