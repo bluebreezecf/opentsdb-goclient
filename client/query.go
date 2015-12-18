@@ -69,6 +69,10 @@ type QueryParam struct {
 	// An optional value is used to show whether or not to output the TSUIDs associated with timeseries in the results.
 	// If multiple time series were aggregated into one set, multiple TSUIDs will be returned in a sorted manner.
 	ShowTSUIDs bool `json:"showTSUIDs,omitempty"`
+
+	// An optional value is used to show whether or not can be paased to the JSON with a POST to delete any data point
+	// that match the given query.
+	Delete bool `json:"delete,omitempty"`
 }
 
 func (query *QueryParam) String() string {
@@ -226,11 +230,7 @@ type QueryRespItem struct {
 // GetDataPoints returns the real ascending datapoints from the information of the related QueryRespItem.
 func (qri *QueryRespItem) GetDataPoints() []*DataPoint {
 	datapoints := make([]*DataPoint, 0)
-	timestampStrs := make([]string, 0)
-	for timestampStr := range qri.Dps {
-		timestampStrs = append(timestampStrs, timestampStr)
-	}
-	sort.Strings(timestampStrs)
+	timestampStrs := qri.getSortedTimestampStrs()
 	for _, timestampStr := range timestampStrs {
 		timestamp, _ := strconv.ParseInt(timestampStr, 10, 64)
 		datapoint := &DataPoint{
@@ -242,6 +242,34 @@ func (qri *QueryRespItem) GetDataPoints() []*DataPoint {
 		datapoints = append(datapoints, datapoint)
 	}
 	return datapoints
+}
+
+// getSortedTimestampStrs returns a slice of the ascending timestamp with
+// string format for the Dps of the related QueryRespItem instance.
+func (qri *QueryRespItem) getSortedTimestampStrs() []string {
+	timestampStrs := make([]string, 0)
+	for timestampStr := range qri.Dps {
+		timestampStrs = append(timestampStrs, timestampStr)
+	}
+	sort.Strings(timestampStrs)
+	return timestampStrs
+}
+
+// GetLatestDataPoint returns latest datapoint for the related QueryRespItem instance.
+func (qri *QueryRespItem) GetLatestDataPoint() *DataPoint {
+	timestampStrs := qri.getSortedTimestampStrs()
+	size := len(timestampStrs)
+	if size == 0 {
+		return nil
+	}
+	timestamp, _ := strconv.ParseInt(timestampStrs[size-1], 10, 64)
+	datapoint := &DataPoint{
+		Metric:    qri.Metric,
+		Value:     qri.Dps[timestampStrs[size-1]],
+		Tags:      qri.Tags,
+		Timestamp: timestamp,
+	}
+	return datapoint
 }
 
 func (c *clientImpl) Query(param QueryParam) (*QueryResponse, error) {
@@ -260,7 +288,7 @@ func (c *clientImpl) Query(param QueryParam) (*QueryResponse, error) {
 	return &queryResp, nil
 }
 
-func getQueryBodyContents(param *QueryParam) (string, error) {
+func getQueryBodyContents(param interface{}) (string, error) {
 	result, err := json.Marshal(param)
 	if err != nil {
 		return "", errors.New(fmt.Sprintf("Failed to marshal query param: %v\n", err))

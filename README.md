@@ -24,13 +24,14 @@ go run sample.go
 
 ###Current supporting rest apis
 ```shell
-GET             /api/aggregators
+GET 			/api/aggregators
 GET,POST,DELETE /api/annotation
 POST,DELETE     /api/annotation/bulk
 GET 			/api/config
 GET 			/api/dropcaches
 POST 			/api/put
-GET				/api/query
+GET 			/api/query
+GET 			/api/query/last
 GET 			/api/serializers
 GET 			/api/stats
 GET				/api/suggest

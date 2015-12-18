@@ -34,7 +34,7 @@ func main() {
 	}
 	tsdbClient, err := client.NewClient(opentsdbCfg)
 	if err != nil {
-		fmt.Println(err.Error())
+		fmt.Printf("%v\n", err)
 		return
 	}
 
@@ -44,7 +44,7 @@ func main() {
 		return
 	}
 	PutDataPointNum := 4
-
+	name := []string{"cpu", "disk", "net", "mem", "bytes"}
 	//1. POST /api/put
 	fmt.Println("Begin to test POST /api/put.")
 	cpuDatas := make([]client.DataPoint, 0)
@@ -52,16 +52,16 @@ func main() {
 	time.Sleep(2 * time.Second)
 	tags := make(map[string]string)
 	tags["host"] = "bluebreezecf-host"
+	tags["try-name"] = "bluebreezecf-sample"
+	tags["demo-name"] = "opentsdb-test"
 	i := 0
 	for {
 		time.Sleep(500 * time.Millisecond)
 		data := client.DataPoint{
-			Metric:    "cpu",
+			Metric:    name[i],
 			Timestamp: time.Now().Unix(),
 			Value:     rand.Float64(),
 		}
-		tags := make(map[string]string)
-		tags["host"] = "bluebreezecf-host"
 		data.Tags = tags
 		cpuDatas = append(cpuDatas, data)
 		fmt.Printf("  %d.Prepare datapoint %s\n", i, data.String())
@@ -79,20 +79,23 @@ func main() {
 	}
 	fmt.Println("Finish testing POST /api/put.")
 
-	//2. POST /api/query
+	//2.1 POST /api/query to query
 	fmt.Println("Begin to test POST /api/query.")
+	time.Sleep(2 * time.Second)
 	st2 := time.Now().Unix()
 	queryParam := client.QueryParam{
 		Start: st1,
 		End:   st2,
 	}
 	subqueries := make([]client.SubQuery, 0)
-	subQuery := client.SubQuery{
-		Aggregator: "sum",
-		Metric:     "cpu",
-		Tags:       tags,
+	for _, metric := range name {
+		subQuery := client.SubQuery{
+			Aggregator: "sum",
+			Metric:     metric,
+			Tags:       tags,
+		}
+		subqueries = append(subqueries, subQuery)
 	}
-	subqueries = append(subqueries, subQuery)
 	queryParam.Queries = subqueries
 	if queryResp, err := tsdbClient.Query(queryParam); err != nil {
 		fmt.Printf("Error occurs when querying: %v", err)
@@ -100,6 +103,48 @@ func main() {
 		fmt.Printf("%s", queryResp.String())
 	}
 	fmt.Println("Finish testing POST /api/query.")
+
+	//2.2 POST /api/query/last
+	fmt.Println("Begin to test POST /api/query/last.")
+	time.Sleep(1 * time.Second)
+	subqueriesLast := make([]client.SubQueryLast, 0)
+	for _, metric := range name {
+		subQueryLast := client.SubQueryLast{
+			Metric: metric,
+			Tags:   tags,
+		}
+		subqueriesLast = append(subqueriesLast, subQueryLast)
+	}
+	queryLastParam := client.QueryLastParam{
+		Queries:      subqueriesLast,
+		ResolveNames: true,
+		BackScan:     24,
+	}
+	if queryLastResp, err := tsdbClient.QueryLast(queryLastParam); err != nil {
+		fmt.Printf("Error occurs when querying last: %v", err)
+	} else {
+		fmt.Printf("%s", queryLastResp.String())
+	}
+	fmt.Println("Finish testing POST /api/query/last.")
+
+	//2.3 POST /api/query to delete
+	fmt.Println("Begin to test POST /api/query to delete.")
+	queryParam.Delete = true
+	if queryResp, err := tsdbClient.Query(queryParam); err != nil {
+		fmt.Printf("Error occurs when deleting: %v", err)
+	} else {
+		fmt.Printf("%s", queryResp.String())
+	}
+
+	time.Sleep(5 * time.Second)
+	fmt.Println("Query again which shoud return null.")
+	queryParam.Delete = false
+	if queryResp, err := tsdbClient.Query(queryParam); err != nil {
+		fmt.Printf("Error occurs when quering: %v", err)
+	} else {
+		fmt.Printf("%s", queryResp.String())
+	}
+	fmt.Println("Finish testing POST /api/query to delete.")
 
 	//3. GET /api/aggregators
 	fmt.Println("Begin to test GET /api/aggregators.")
