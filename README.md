@@ -1,6 +1,10 @@
-##opentsdb-goclient
+# opentsdb-goclient
 
-###Backgroud
+This is a fork of the original under bluebreezecf, as that seems to be
+unresponsive to pull requests. It primarily exists for the use of
+[geras](https://github.com/G-Research/geras).
+
+## Backgroud
 OpenTSDB is a distributed, scalable Time Series Database (TSDB) written on top of HBase.
 OpenTSDB was written to address a common need: store, index and serve metrics collected 
 from computer systems (network gear, operating systems, applications) at a large scale, 
@@ -9,7 +13,7 @@ and make this data easily accessible and graphable.
 I am about to use OpenTSDB, but currently there is no useable go-sdk for OpenTSDB. So I 
 develop the opentsdb-goclient for convenience according to the [OpenTSDB Rest API Doc] (http://opentsdb.net/docs/build/html/api_http/index.html#api-endpoints)
 
-###How to use sample
+## How to use sample
 If you want to see how does the sample (sample.go) run, you can execute the following commands:
 ```shell
 cd $GOPATH
@@ -22,8 +26,9 @@ go run sample.go
 
 ```
 
-###Current supporting rest apis
-```shell
+## Current supporting rest apis
+
+```
 GET 			/api/aggregators
 GET,POST,DELETE /api/annotation
 POST,DELETE     /api/annotation/bulk
