@@ -24,8 +24,8 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/bluebreezecf/opentsdb-goclient/client"
-	"github.com/bluebreezecf/opentsdb-goclient/config"
+	"github.com/G-Research/opentsdb-goclient/client"
+	"github.com/G-Research/opentsdb-goclient/config"
 )
 
 func main() {
