@@ -172,14 +172,14 @@ func (queryResp *QueryResponse) SetStatus(code int) {
 
 func (queryResp *QueryResponse) GetCustomParser() func(respCnt []byte) error {
 	return func(respCnt []byte) error {
-		originRespStr := string(respCnt)
-		var respStr string
-		if queryResp.StatusCode == 200 && strings.Contains(originRespStr, "[") && strings.Contains(originRespStr, "]") {
-			respStr = fmt.Sprintf("{%s:%s}", `"queryRespCnts"`, originRespStr)
+		if queryResp.StatusCode == 200 && bytes.Contains(respCnt, "[") && bytes.Contains(respCnt, "]") {
+			var results []QueryRespItem
+			err := json.Unmarshal(respCnt, &results)
+			queryResp.QueryRespCnts = results
+			return err
 		} else {
-			respStr = originRespStr
+			return json.Unmarshal(respCnt, &queryResp)
 		}
-		return json.Unmarshal([]byte(respStr), &queryResp)
 	}
 }
 
