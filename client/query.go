@@ -27,7 +27,6 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
-	"strings"
 )
 
 // QueryParam is the structure used to hold
@@ -172,7 +171,7 @@ func (queryResp *QueryResponse) SetStatus(code int) {
 
 func (queryResp *QueryResponse) GetCustomParser() func(respCnt []byte) error {
 	return func(respCnt []byte) error {
-		if queryResp.StatusCode == 200 && bytes.Contains(respCnt, "[") && bytes.Contains(respCnt, "]") {
+		if queryResp.StatusCode == 200 && bytes.Contains(respCnt, []byte("[")) && bytes.Contains(respCnt, []byte("]")) {
 			var results []QueryRespItem
 			err := json.Unmarshal(respCnt, &results)
 			queryResp.QueryRespCnts = results
@@ -229,35 +228,29 @@ type QueryRespItem struct {
 
 // GetDataPoints returns the real ascending datapoints from the information of the related QueryRespItem.
 func (qri *QueryRespItem) GetDataPoints() []*DataPoint {
-	datapoints := make([]*DataPoint, 0)
-	timestampStrs := qri.getSortedTimestampStrs()
-	for _, timestampStr := range timestampStrs {
+	datapoints := make([]*DataPoint, len(qri.Dps))
+	i := 0
+	for timestampStr, v := range qri.Dps {
 		timestamp, _ := strconv.ParseInt(timestampStr, 10, 64)
-		datapoint := &DataPoint{
+		datapoints[i] = &DataPoint{
 			Metric:    qri.Metric,
-			Value:     qri.Dps[timestampStr],
+			Value:     v,
 			Tags:      qri.Tags,
 			Timestamp: timestamp,
 		}
-		datapoints = append(datapoints, datapoint)
+		i++
 	}
+	sort.Sort(DataPointByTimestamp(datapoints))
 	return datapoints
-}
-
-// getSortedTimestampStrs returns a slice of the ascending timestamp with
-// string format for the Dps of the related QueryRespItem instance.
-func (qri *QueryRespItem) getSortedTimestampStrs() []string {
-	timestampStrs := make([]string, 0)
-	for timestampStr := range qri.Dps {
-		timestampStrs = append(timestampStrs, timestampStr)
-	}
-	sort.Strings(timestampStrs)
-	return timestampStrs
 }
 
 // GetLatestDataPoint returns latest datapoint for the related QueryRespItem instance.
 func (qri *QueryRespItem) GetLatestDataPoint() *DataPoint {
-	timestampStrs := qri.getSortedTimestampStrs()
+	timestampStrs := make([]string, len(qri.Dps))
+	for timestampStr := range qri.Dps {
+		timestampStrs = append(timestampStrs, timestampStr)
+	}
+	sort.Strings(timestampStrs)
 	size := len(timestampStrs)
 	if size == 0 {
 		return nil
