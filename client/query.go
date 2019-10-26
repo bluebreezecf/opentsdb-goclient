@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"sort"
 	"strconv"
 )
@@ -148,14 +149,25 @@ type Filter struct {
 	GroupBy bool `json:"groupBy"`
 }
 
+// QueryError is the OpenTSDB error reply. Fields are 'code', 'message', etc.
+type QueryError map[string]interface{}
+
+func (qe QueryError) Error() string {
+	msg, ok := qe["message"].(string)
+	if !ok {
+		return fmt.Sprintf("QueryError: %#v", qe)
+	}
+	return msg
+}
+
 // QueryResponse acts as the implementation of Response in the /api/query scene.
 // It holds the status code and the response values defined in the
 // (http://opentsdb.net/docs/build/html/api_http/query/index.html).
 //
 type QueryResponse struct {
 	StatusCode    int
-	QueryRespCnts []QueryRespItem        `json:"queryRespCnts"`
-	ErrorMsg      map[string]interface{} `json:"error"`
+	QueryRespCnts []QueryRespItem `json:"queryRespCnts"`
+	ErrorMsg      QueryError      `json:"error"`
 }
 
 func (queryResp *QueryResponse) String() string {
@@ -224,6 +236,9 @@ type QueryRespItem struct {
 	// the timespan and the results returned in this group.
 	// The value is optional.
 	GlobalAnnotations []Annotation `json:"globalAnnotations,omitempty"`
+
+	// If an error occurred (only used for QueryStream, if the data is malformed while parsing).
+	Error error
 }
 
 // GetDataPoints returns the real ascending datapoints from the information of the related QueryRespItem.
@@ -266,11 +281,8 @@ func (qri *QueryRespItem) GetLatestDataPoint() *DataPoint {
 }
 
 func (c *clientImpl) Query(param QueryParam) (*QueryResponse, error) {
-	if !isValidQueryParam(&param) {
-		return nil, errors.New("The given query param is invalid.\n")
-	}
 	queryEndpoint := fmt.Sprintf("%s%s", c.tsdbEndpoint, QueryPath)
-	reqBodyCnt, err := getQueryBodyContents(&param)
+	reqBodyCnt, err := prepQuery(param)
 	if err != nil {
 		return nil, err
 	}
@@ -281,7 +293,83 @@ func (c *clientImpl) Query(param QueryParam) (*QueryResponse, error) {
 	return &queryResp, nil
 }
 
-func getQueryBodyContents(param interface{}) (string, error) {
+func (c *clientImpl) QueryStream(param QueryParam, outCh chan<- *QueryRespItem) error {
+	queryEndpoint := fmt.Sprintf("%s%s", c.tsdbEndpoint, QueryPath)
+	reqBodyCnt, err := prepQuery(param)
+	if err != nil {
+		return err
+	}
+	queryStreamResp := QueryStreamResponse{outCh: outCh}
+	if err = c.sendRequest(PostMethod, queryEndpoint, reqBodyCnt, &queryStreamResp); err != nil {
+		close(outCh)
+		return err
+	}
+	return nil
+}
+
+type QueryStreamResponse struct {
+	outCh      chan<- *QueryRespItem
+	statusCode int
+}
+
+func (qs *QueryStreamResponse) SetStatus(code int) {
+	qs.statusCode = code
+}
+
+func (qs *QueryStreamResponse) HandleBody(body io.ReadCloser) error {
+	dec := json.NewDecoder(body)
+	// look at first token, we want a '[' (results) or a '{' (error).
+	t, err := dec.Token()
+	if err != nil {
+		body.Close()
+		return err
+	}
+	delim, ok := t.(json.Delim)
+	if !ok || (delim != '{' && delim != '[') {
+		return fmt.Errorf("unexpected response format: %T(%v)", t, t)
+	}
+
+	if delim == '{' { // An error
+		defer body.Close()
+		for dec.More() {
+			t, err := dec.Token()
+			if err != nil {
+				return err
+			}
+			if delim, ok := t.(string); ok && delim == "error" {
+				qerr := make(QueryError)
+				err := dec.Decode(&qerr)
+				if err != nil {
+					return err
+				}
+				return qerr
+			}
+		}
+		return errors.New("no 'error' present in response")
+	}
+
+	// Results list, run in goroutine
+	go func() {
+		defer body.Close()
+
+		for dec.More() {
+			var m QueryRespItem
+			err := dec.Decode(&m)
+			if err != nil {
+				m.Error = err
+			}
+			qs.outCh <- &m
+		}
+		close(qs.outCh)
+	}()
+
+	return nil
+}
+
+func prepQuery(param QueryParam) (string, error) {
+	if !isValidQueryParam(&param) {
+		return "", errors.New("The given query param is invalid.\n")
+	}
 	result, err := json.Marshal(param)
 	if err != nil {
 		return "", errors.New(fmt.Sprintf("Failed to marshal query param: %v\n", err))
