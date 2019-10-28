@@ -300,7 +300,7 @@ func (dps *DataPoints) UnmarshalJSON(json []byte) error {
 			start := i
 			j := start
 			for ; j < len(json); j++ {
-				if json[j] == ',' || json[j] == '}' {
+				if json[j] == ' ' || json[j] == '\n' || json[j] == '\t' || json[j] == ',' || json[j] == '}' {
 					break
 				}
 			}
@@ -313,7 +313,13 @@ func (dps *DataPoints) UnmarshalJSON(json []byte) error {
 				dp, err = strconv.ParseFloat(s, 10)
 			}
 			seenDP = err == nil
-		case ',', '}': // end of item, add to list
+		case '}':
+			if inObject && json[i-1] == '{' {
+				// No items
+				break
+			}
+			fallthrough
+		case ',': // end of item, add to list
 			if !seenTS || !seenDP {
 				return errors.New("Missing ts or dp")
 			}
